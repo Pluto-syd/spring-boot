@@ -1,7 +1,5 @@
-[legal]
+[[legal]]
 = Legal
-
-{spring-boot-version}
 
 Copyright &#169; 2012-2021
 

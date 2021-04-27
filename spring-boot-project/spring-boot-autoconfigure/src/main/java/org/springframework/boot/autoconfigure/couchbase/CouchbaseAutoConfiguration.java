@@ -16,6 +16,7 @@
 
 package org.springframework.boot.autoconfigure.couchbase;
 
+import java.io.InputStream;
 import java.net.URL;
 import java.security.KeyStore;
 
@@ -114,7 +115,9 @@ public class CouchbaseAutoConfiguration {
 	private KeyStore loadKeyStore(String resource, String keyStorePassword) throws Exception {
 		KeyStore store = KeyStore.getInstance(KeyStore.getDefaultType());
 		URL url = ResourceUtils.getURL(resource);
-		store.load(url.openStream(), (keyStorePassword != null) ? keyStorePassword.toCharArray() : null);
+		try (InputStream stream = url.openStream()) {
+			store.load(stream, (keyStorePassword != null) ? keyStorePassword.toCharArray() : null);
+		}
 		return store;
 	}
 
@@ -124,7 +127,7 @@ public class CouchbaseAutoConfiguration {
 
 		@Bean
 		@ConditionalOnSingleCandidate(ObjectMapper.class)
-		ClusterEnvironmentBuilderCustomizer cluster(ObjectMapper objectMapper) {
+		ClusterEnvironmentBuilderCustomizer jacksonClusterEnvironmentBuilderCustomizer(ObjectMapper objectMapper) {
 			return new JacksonClusterEnvironmentBuilderCustomizer(objectMapper);
 		}
 

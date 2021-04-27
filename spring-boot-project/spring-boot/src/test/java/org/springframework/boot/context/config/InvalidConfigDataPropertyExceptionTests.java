@@ -29,6 +29,7 @@ import org.springframework.mock.env.MockPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -121,18 +122,31 @@ class InvalidConfigDataPropertyExceptionTests {
 		throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException("spring.profiles.include");
 		throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException("spring.profiles.active");
 		throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException("spring.profiles.default");
-		throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException("spring.config.activate.on-profile");
-		throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException("spring.profiles");
+	}
+
+	@Test
+	void throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyOnIgnoringProfilesContributorDoesNotThrowException() {
+		ConfigDataEnvironmentContributor contributor = createInvalidProfileSpecificPropertyContributor(
+				"spring.profiles.active", ConfigData.Option.IGNORE_PROFILES);
+		assertThatNoException()
+				.isThrownBy(() -> InvalidConfigDataPropertyException.throwOrWarn(this.logger, contributor));
 	}
 
 	private void throwOrWarnWhenWhenHasInvalidProfileSpecificPropertyThrowsException(String name) {
-		MockPropertySource propertySource = new MockPropertySource();
-		propertySource.setProperty(name, "a");
-		ConfigDataEnvironmentContributor contributor = new ConfigDataEnvironmentContributor(Kind.BOUND_IMPORT, null,
-				null, true, propertySource, ConfigurationPropertySource.from(propertySource), null, false, null);
+		ConfigDataEnvironmentContributor contributor = createInvalidProfileSpecificPropertyContributor(name);
 		assertThatExceptionOfType(InvalidConfigDataPropertyException.class)
 				.isThrownBy(() -> InvalidConfigDataPropertyException.throwOrWarn(this.logger, contributor))
 				.withMessageStartingWith("Property '" + name + "' is invalid in a profile specific resource");
+	}
+
+	private ConfigDataEnvironmentContributor createInvalidProfileSpecificPropertyContributor(String name,
+			ConfigData.Option... configDataOptions) {
+		MockPropertySource propertySource = new MockPropertySource();
+		propertySource.setProperty(name, "a");
+		ConfigDataEnvironmentContributor contributor = new ConfigDataEnvironmentContributor(Kind.BOUND_IMPORT, null,
+				null, true, propertySource, ConfigurationPropertySource.from(propertySource), null,
+				ConfigData.Options.of(configDataOptions), null);
+		return contributor;
 	}
 
 	@Test
@@ -150,6 +164,16 @@ class InvalidConfigDataPropertyExceptionTests {
 		InvalidConfigDataPropertyException.throwOrWarn(this.logger, contributor);
 		verify(this.logger).warn("Property 'spring.profiles' is invalid and should be replaced with "
 				+ "'spring.config.activate.on-profile' [origin: \"spring.profiles\" from property source \"mockProperties\"]");
+	}
+
+	@Test
+	void throwOrWarnWhenHasWarningPropertyWithListSyntaxLogsWarning() {
+		MockPropertySource propertySource = new MockPropertySource();
+		propertySource.setProperty("spring.profiles[0]", "a");
+		ConfigDataEnvironmentContributor contributor = ConfigDataEnvironmentContributor.ofExisting(propertySource);
+		InvalidConfigDataPropertyException.throwOrWarn(this.logger, contributor);
+		verify(this.logger).warn("Property 'spring.profiles[0]' is invalid and should be replaced with "
+				+ "'spring.config.activate.on-profile' [origin: \"spring.profiles[0]\" from property source \"mockProperties\"]");
 	}
 
 	private static class TestConfigDataResource extends ConfigDataResource {
